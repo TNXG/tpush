@@ -10,6 +10,12 @@ pub async fn migrate(database: &Pool<Sqlite>) -> anyhow::Result<()> {
             id TEXT PRIMARY KEY,
             device_id TEXT NOT NULL UNIQUE,
             channel TEXT NOT NULL DEFAULT 'default',
+            device_name TEXT NOT NULL DEFAULT '',
+            system_name TEXT NOT NULL DEFAULT '',
+            system_version TEXT NOT NULL DEFAULT '',
+            app_version TEXT NOT NULL DEFAULT '',
+            last_seen_at TEXT NOT NULL DEFAULT '',
+            last_ws_connected_at TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
@@ -45,10 +51,55 @@ pub async fn migrate(database: &Pool<Sqlite>) -> anyhow::Result<()> {
     .await?;
     add_column_if_missing(
         database,
+        "devices",
+        "device_name",
+        "TEXT NOT NULL DEFAULT ''",
+    )
+    .await?;
+    add_column_if_missing(
+        database,
+        "devices",
+        "system_name",
+        "TEXT NOT NULL DEFAULT ''",
+    )
+    .await?;
+    add_column_if_missing(
+        database,
+        "devices",
+        "system_version",
+        "TEXT NOT NULL DEFAULT ''",
+    )
+    .await?;
+    add_column_if_missing(
+        database,
+        "devices",
+        "app_version",
+        "TEXT NOT NULL DEFAULT ''",
+    )
+    .await?;
+    add_column_if_missing(
+        database,
+        "devices",
+        "last_seen_at",
+        "TEXT NOT NULL DEFAULT ''",
+    )
+    .await?;
+    add_column_if_missing(database, "devices", "last_ws_connected_at", "TEXT").await?;
+    add_column_if_missing(
+        database,
         "push_messages",
         "channel",
         "TEXT NOT NULL DEFAULT 'default'",
     )
+    .await?;
+    sqlx::query(
+        r#"
+        UPDATE devices
+        SET last_seen_at = updated_at
+        WHERE last_seen_at = ''
+        "#,
+    )
+    .execute(database)
     .await?;
 
     let now = Utc::now();

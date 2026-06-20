@@ -8,6 +8,8 @@ pub struct RegisterDeviceRequest {
     #[serde(default = "default_channel")]
     pub channel: String,
     #[serde(default)]
+    pub device: DeviceInfo,
+    #[serde(default)]
     pub auth: ChannelAuth,
 }
 
@@ -72,6 +74,38 @@ pub struct ChannelAuth {
     pub nonce: String,
     #[serde(default)]
     pub signature: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct DeviceInfo {
+    #[serde(default, rename = "deviceName")]
+    pub device_name: String,
+    #[serde(default, rename = "systemName")]
+    pub system_name: String,
+    #[serde(default, rename = "systemVersion")]
+    pub system_version: String,
+    #[serde(default, rename = "appVersion")]
+    pub app_version: String,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct DeviceItem {
+    #[serde(rename = "deviceId")]
+    pub device_id: String,
+    pub channel: String,
+    #[serde(rename = "deviceName")]
+    pub device_name: String,
+    #[serde(rename = "systemName")]
+    pub system_name: String,
+    #[serde(rename = "systemVersion")]
+    pub system_version: String,
+    #[serde(rename = "appVersion")]
+    pub app_version: String,
+    #[serde(rename = "lastSeenAt")]
+    pub last_seen_at: DateTime<Utc>,
+    #[serde(rename = "lastWsConnectedAt")]
+    pub last_ws_connected_at: Option<DateTime<Utc>>,
+    pub online: bool,
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]

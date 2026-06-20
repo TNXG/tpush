@@ -3,18 +3,18 @@ use axum::extract::ws::{Message as WebSocketMessage, WebSocket, WebSocketUpgrade
 use axum::extract::{Path, Query, State};
 use chrono::Utc;
 use futures_util::{SinkExt, StreamExt};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use crate::crypto::{encrypt_message, load_channel_key, validate_channel_signature};
 use crate::error::ApiError;
 use crate::models::{
-    DeleteMessagesRequest, DeleteMessagesResponse, EncryptedEnvelope, MessageHistoryItem,
-    PushRequest, PushResponse, RealtimeMessage, RegisterDeviceRequest, RegisterDeviceResponse,
-    SyncQuery,
+    DeleteMessagesRequest, DeleteMessagesResponse, DeviceInfo, DeviceItem, EncryptedEnvelope,
+    MessageHistoryItem, PushRequest, PushResponse, RealtimeMessage, RegisterDeviceRequest,
+    RegisterDeviceResponse, SyncQuery,
 };
-use crate::state::{AppState, ClientMap};
+use crate::state::{AppState, ClientConnection, ClientMap};
 
 pub async fn register_device(
     State(state): State<AppState>,
@@ -30,24 +30,112 @@ pub async fn register_device(
     )
     .await?;
     let id = Uuid::new_v4().to_string();
-    let now = Utc::now();
 
+    upsert_device(&state, &request.device_id, &request.channel, &request.device, None).await?;
+
+    Ok(Json(RegisterDeviceResponse { id }))
+}
+
+pub async fn list_devices(State(state): State<AppState>) -> Result<Json<Vec<DeviceItem>>, ApiError> {
+    let mut devices = sqlx::query_as::<_, DeviceItem>(
+        r#"
+        SELECT
+            device_id,
+            channel,
+            device_name,
+            system_name,
+            system_version,
+            app_version,
+            last_seen_at,
+            last_ws_connected_at,
+            0 as online
+        FROM devices
+        ORDER BY last_seen_at DESC
+        LIMIT 200
+        "#,
+    )
+    .fetch_all(&state.database)
+    .await?;
+    let online_device_ids = online_device_ids(&state.clients);
+    for device in &mut devices {
+        device.online = online_device_ids.contains(&device.device_id);
+    }
+    Ok(Json(devices))
+}
+
+async fn upsert_device(
+    state: &AppState,
+    device_id: &str,
+    channel: &str,
+    device: &DeviceInfo,
+    last_ws_connected_at: Option<chrono::DateTime<Utc>>,
+) -> Result<(), ApiError> {
+    let trimmed_device_id = device_id.trim();
+    if trimmed_device_id.is_empty() {
+        return Ok(());
+    }
+
+    let id = Uuid::new_v4().to_string();
+    let now = Utc::now();
     sqlx::query(
         r#"
-        INSERT INTO devices (id, device_id, channel, created_at, updated_at)
-        VALUES (?1, ?2, ?3, ?4, ?5)
-        ON CONFLICT(device_id) DO UPDATE SET channel = excluded.channel, updated_at = excluded.updated_at
+        INSERT INTO devices (
+            id,
+            device_id,
+            channel,
+            device_name,
+            system_name,
+            system_version,
+            app_version,
+            last_seen_at,
+            last_ws_connected_at,
+            created_at,
+            updated_at
+        )
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+        ON CONFLICT(device_id) DO UPDATE SET
+            channel = excluded.channel,
+            device_name = excluded.device_name,
+            system_name = excluded.system_name,
+            system_version = excluded.system_version,
+            app_version = excluded.app_version,
+            last_seen_at = excluded.last_seen_at,
+            last_ws_connected_at = COALESCE(excluded.last_ws_connected_at, devices.last_ws_connected_at),
+            updated_at = excluded.updated_at
         "#,
     )
     .bind(&id)
-    .bind(&request.device_id)
-    .bind(&request.channel)
+    .bind(trimmed_device_id)
+    .bind(channel)
+    .bind(clean_device_field(&device.device_name))
+    .bind(clean_device_field(&device.system_name))
+    .bind(clean_device_field(&device.system_version))
+    .bind(clean_device_field(&device.app_version))
+    .bind(now)
+    .bind(last_ws_connected_at)
     .bind(now)
     .bind(now)
     .execute(&state.database)
     .await?;
 
-    Ok(Json(RegisterDeviceResponse { id }))
+    Ok(())
+}
+
+fn clean_device_field(value: &str) -> String {
+    value.trim().chars().take(120).collect()
+}
+
+fn online_device_ids(clients: &ClientMap) -> HashSet<String> {
+    clients
+        .lock()
+        .unwrap()
+        .values()
+        .flat_map(|channel_clients| channel_clients.values())
+        .filter_map(|connection| {
+            let device_id = connection.device_id.trim();
+            (!device_id.is_empty()).then(|| device_id.to_owned())
+        })
+        .collect()
 }
 
 pub async fn stream_channel(
@@ -61,14 +149,27 @@ pub async fn stream_channel(
     let signature = query.get("signature").cloned().unwrap_or_default();
     validate_channel_signature(&state.database, &channel, "ws", &ts, &nonce, &signature).await?;
     let connection_id = Uuid::new_v4().to_string();
+    let device_id = query.get("deviceId").cloned().unwrap_or_default();
+    let device = device_info_from_query(&query);
+    upsert_device(&state, &device_id, &channel, &device, Some(Utc::now())).await?;
     Ok(web_socket_upgrade
-        .on_upgrade(move |socket| handle_channel_socket(state, channel, connection_id, socket)))
+        .on_upgrade(move |socket| handle_channel_socket(state, channel, connection_id, device_id, socket)))
+}
+
+fn device_info_from_query(query: &HashMap<String, String>) -> DeviceInfo {
+    DeviceInfo {
+        device_name: query.get("deviceName").cloned().unwrap_or_default(),
+        system_name: query.get("systemName").cloned().unwrap_or_default(),
+        system_version: query.get("systemVersion").cloned().unwrap_or_default(),
+        app_version: query.get("appVersion").cloned().unwrap_or_default(),
+    }
 }
 
 async fn handle_channel_socket(
     state: AppState,
     channel: String,
     connection_id: String,
+    device_id: String,
     socket: WebSocket,
 ) {
     let (mut sender, mut receiver) = socket.split();
@@ -79,7 +180,13 @@ async fn handle_channel_socket(
         .unwrap()
         .entry(channel.clone())
         .or_default()
-        .insert(connection_id.clone(), message_sender);
+        .insert(
+            connection_id.clone(),
+            ClientConnection {
+                device_id,
+                sender: message_sender,
+            },
+        );
 
     loop {
         tokio::select! {
@@ -161,7 +268,7 @@ fn broadcast_message(clients: &ClientMap, channel: &str, message_json: String) -
         .get(channel)
         .into_iter()
         .flat_map(|channel_clients| channel_clients.values())
-        .filter(|sender| sender.send(message_json.clone()).is_ok())
+        .filter(|connection| connection.sender.send(message_json.clone()).is_ok())
         .count()
 }
 
