@@ -1,0 +1,21 @@
+{
+  "name": "tpush-panel",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "serve": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "test": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "solid-js": "^1.9.5",
+    "vite": "^6.0.7",
+    "vite-plugin-solid": "^2.11.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

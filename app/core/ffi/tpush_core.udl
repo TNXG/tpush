@@ -1,0 +1,17 @@
+namespace tpushcore {
+    void initialize(string database_path, string server_base_url);
+    sequence<Message> get_messages();
+    void mark_read(string id);
+    string get_device_id();
+    void clear_all();
+};
+
+dictionary Message {
+    string id;
+    string title;
+    string content;
+    string payload;
+    string kind;
+    string received_at;
+    boolean read;
+};

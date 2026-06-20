@@ -1,0 +1,60 @@
+# Dependencies
+node_modules/
+
+# Rust
+*/target/
+/target/
+
+# Android
+app/android/app/build/
+app/android/app/.cxx/
+app/android/.gradle/
+app/android/build/
+app/android/local.properties
+app/core/android/build/
+app/core/android/.gradle/
+*.apk
+*.aab
+*.keystore
+*.jks
+*.p12
+
+# React Native / Metro
+app/android/app/src/main/assets/index.android.bundle
+app/android/app/src/main/assets/index.android.bundle.map
+
+# Turborepo
+.turbo/
+
+# Cargo (local machine config)
+.cargo/
+
+# Panel build
+app/panel/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Database
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Server binary
+server/tpush-server

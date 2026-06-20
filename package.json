@@ -1,0 +1,24 @@
+{
+  "name": "tpush",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "dev:rn": "turbo run dev --filter=tpush-app",
+    "dev:panel": "turbo run dev --filter=tpush-panel",
+    "dev:server": "turbo run dev --filter=tpush-server-runtime",
+    "android": "turbo run android --filter=tpush-app",
+    "android:debug": "turbo run build:debug --filter=tpush-app",
+    "android:install": "bash scripts/adb-install.sh --debug",
+    "build": "turbo run build",
+    "build:output": "bash scripts/build-output.sh",
+    "local": "bash scripts/local-run.sh debug",
+    "local:release": "bash scripts/local-run.sh release",
+    "serve": "turbo run serve --parallel --filter=tpush-server-runtime --filter=tpush-panel",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.6"
+  }
+}
