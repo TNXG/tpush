@@ -204,6 +204,7 @@ function App(): React.JSX.Element {
           icon="trash-can-outline"
           onPress={() => setClearDialogOpen(true)}
           disabled={messages.length === 0}
+          labelStyle={styles.clearButtonLabel}
         >
           清空全部消息
         </Button>
@@ -246,5 +247,8 @@ const styles = StyleSheet.create({
   footer: {
     padding: 16,
     backgroundColor: "white",
+  },
+  clearButtonLabel: {
+    flexShrink: 1,
   },
 });

@@ -49,18 +49,20 @@ export function PushAppBar({
         titleStyle={{ fontWeight: 'bold' }}
         subtitle={deviceId || '正在生成设备 ID...'}
         subtitleStyle={{ fontSize: 12, opacity: 0.8 }}
+        style={{ flexShrink: 1 }}
       />
       <Chip
         onPress={onOpenSettings}
-        style={{ marginRight: 8, backgroundColor: theme.colors.surfaceVariant }}
+        style={{ marginRight: 8, backgroundColor: theme.colors.surfaceVariant, flexShrink: 1 }}
         textStyle={{ color: statusColor, fontWeight: 'bold' }}
         icon={statusIcon}
+        ellipsizeMode="tail"
       >
         {statusLabel}
       </Chip>
-      <Appbar.Action 
+      <Appbar.Action
         icon="refresh"
-        onPress={onRefresh} 
+        onPress={onRefresh}
       />
     </Appbar.Header>
   );
