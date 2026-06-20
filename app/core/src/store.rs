@@ -136,10 +136,10 @@ impl MessageStore {
     }
 
     pub fn get_or_create_device_id(&self) -> Result<String> {
-        if let Ok(device_id) = self.get_setting("device_id") {
-            if !device_id.is_empty() {
-                return Ok(device_id);
-            }
+        if let Ok(device_id) = self.get_setting("device_id")
+            && !device_id.is_empty()
+        {
+            return Ok(device_id);
         }
 
         let device_id = uuid::Uuid::new_v4().to_string();

@@ -1,3 +1,5 @@
+#![allow(clippy::large_const_arrays)]
+
 mod store;
 
 use anyhow::{Context, Result};
@@ -65,18 +67,18 @@ pub fn get_messages() -> Vec<Message> {
 }
 
 pub fn mark_read(id: String) {
-    if let Some(runtime) = runtime() {
-        if let Err(error) = runtime.store.mark_read(&id) {
-            eprintln!("TPush mark_read failed: {error:?}");
-        }
+    if let Some(runtime) = runtime()
+        && let Err(error) = runtime.store.mark_read(&id)
+    {
+        eprintln!("TPush mark_read failed: {error:?}");
     }
 }
 
 pub fn delete_message(id: String) {
-    if let Some(runtime) = runtime() {
-        if let Err(error) = runtime.store.delete_message(&id) {
-            eprintln!("TPush delete_message failed: {error:?}");
-        }
+    if let Some(runtime) = runtime()
+        && let Err(error) = runtime.store.delete_message(&id)
+    {
+        eprintln!("TPush delete_message failed: {error:?}");
     }
 }
 
@@ -87,10 +89,10 @@ pub fn get_device_id() -> String {
 }
 
 pub fn clear_all() {
-    if let Some(runtime) = runtime() {
-        if let Err(error) = runtime.store.clear_all() {
-            eprintln!("TPush clear_all failed: {error:?}");
-        }
+    if let Some(runtime) = runtime()
+        && let Err(error) = runtime.store.clear_all()
+    {
+        eprintln!("TPush clear_all failed: {error:?}");
     }
 }
 
@@ -171,7 +173,9 @@ fn context_files_database_path(env: &mut Env<'_>, context: &JObject<'_>) -> Resu
 
     Ok(format!(
         "{}/tpush.sqlite",
-        jstring_to_string(env, unsafe { JString::from_raw(env, absolute_path.into_raw()) })
+        jstring_to_string(env, unsafe {
+            JString::from_raw(env, absolute_path.into_raw())
+        })
     ))
 }
 
