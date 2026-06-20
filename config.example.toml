@@ -1,0 +1,10 @@
+[server]
+# 后端服务器监听地址和端口
+bind_address = "0.0.0.0:3000"
+
+[auth]
+# JWT 签名密钥（请修改为随机字符串）
+jwt_secret = "change-me-to-a-random-secret"
+# 管理面板登录凭据
+username = "admin"
+password = "admin123"

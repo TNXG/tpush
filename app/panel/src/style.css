@@ -218,6 +218,29 @@ button:disabled {
   text-align: center;
 }
 
+.logout-btn {
+  margin-left: auto;
+}
+
+/* Login page */
+.login-shell {
+  align-items: center;
+  background: var(--md-sys-color-surface);
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.login-form {
+  max-width: 400px;
+  width: 100%;
+}
+
+.login-form .header-section {
+  justify-content: center;
+  text-align: center;
+}
+
 @media (max-width: 1024px) {
   .shell {
     grid-template-columns: 1fr;

@@ -45,6 +45,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Config (contains secrets)
+config.toml
+
 # Env
 .env
 .env.local

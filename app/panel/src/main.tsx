@@ -6,10 +6,80 @@ import {
   deleteMessages as deleteMessagesByIds,
   fetchChannels,
   fetchMessages,
+  getToken,
+  loginApi,
   saveChannel as saveChannelApi,
   sendPush,
+  setToken,
 } from "./api";
 import "./style.css";
+
+function LoginScreen() {
+  const [username, setUsername] = createSignal("");
+  const [password, setPassword] = createSignal("");
+  const [error, setError] = createSignal("");
+  const [loading, setLoading] = createSignal(false);
+
+  const handleLogin = async (event: SubmitEvent) => {
+    event.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const token = await loginApi(username(), password());
+      setToken(token);
+      window.location.reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <main class="login-shell">
+      <form class="login-form" onSubmit={handleLogin}>
+        <div class="header-section">
+          <span class="material-symbols-rounded brand-icon">hub</span>
+          <div>
+            <h1>TPush</h1>
+            <p>管理面板登录</p>
+          </div>
+        </div>
+
+        <Show when={error()}>
+          <div class="error">
+            <span class="material-symbols-rounded">error</span>
+            {error()}
+          </div>
+        </Show>
+
+        <label>
+          用户名
+          <input
+            value={username()}
+            onInput={(event) => setUsername(event.currentTarget.value)}
+            placeholder="请输入用户名"
+            autocomplete="username"
+          />
+        </label>
+        <label>
+          密码
+          <input
+            type="password"
+            value={password()}
+            onInput={(event) => setPassword(event.currentTarget.value)}
+            placeholder="请输入密码"
+            autocomplete="current-password"
+          />
+        </label>
+        <button type="submit" disabled={loading() || !username().trim() || !password().trim()}>
+          <span class="material-symbols-rounded">{loading() ? "hourglass_top" : "login"}</span>
+          {loading() ? "登录中..." : "登录"}
+        </button>
+      </form>
+    </main>
+  );
+}
 
 function App() {
   const [messages, { refetch }] = createResource(fetchMessages);
@@ -25,6 +95,11 @@ function App() {
   const [extras, setExtras] = createSignal("{}");
   const [isSubmitting, setIsSubmitting] = createSignal(false);
   const [error, setError] = createSignal("");
+
+  const handleLogout = () => {
+    setToken(null);
+    window.location.reload();
+  };
 
   const submitPush = async (event: SubmitEvent) => {
     event.preventDefault();
@@ -139,6 +214,9 @@ function App() {
             <h1>TPush</h1>
             <p>实时频道推送管理面板</p>
           </div>
+          <button type="button" class="btn-secondary logout-btn" onClick={handleLogout}>
+            <span class="material-symbols-rounded">logout</span>
+          </button>
         </div>
 
         <form class="channel-form" onSubmit={saveChannel}>
@@ -329,4 +407,6 @@ function App() {
   );
 }
 
-render(() => <App />, document.getElementById("root")!);
+const isAuthenticated = () => getToken() !== null;
+
+render(() => <>{isAuthenticated() ? <App /> : <LoginScreen />}</>, document.getElementById("root")!);
