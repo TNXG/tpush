@@ -3,10 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "DATABASE_URL=${DATABASE_URL:-sqlite://../tpush.sqlite} BIND_ADDRESS=${BIND_ADDRESS:-0.0.0.0:3000} cargo run -p tpush-server",
-    "serve": "DATABASE_URL=${DATABASE_URL:-sqlite://../tpush.sqlite} BIND_ADDRESS=${BIND_ADDRESS:-0.0.0.0:3000} ../target/release/tpush-server",
-    "build": "cargo build -p tpush-server --release",
-    "test": "cargo test -p tpush-server",
-    "typecheck": "cargo check -p tpush-server"
+    "dev": "BIND_ADDRESS=${BIND_ADDRESS:-0.0.0.0:3000} cargo run",
+    "serve": "BIND_ADDRESS=${BIND_ADDRESS:-0.0.0.0:3000} ./target/release/tpush-server",
+    "build": "cargo build --release",
+    "test": "cargo test",
+    "typecheck": "cargo check"
   }
 }

@@ -27,7 +27,7 @@ futures-util = { version = "0.3.32", default-features = false, features = [
 ] }
 hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 hmac = "0.13.0"
-jsonwebtoken = "10.4.0"
+jsonwebtoken = { version = "10.4.0", default-features = false, features = ["rust_crypto"] }
 mime_guess = "2.0.5"
 rust-embed = { version = "8.11.0", default-features = false, features = [
     "compression",

@@ -3,7 +3,8 @@
   "private": true,
   "packageManager": "pnpm@9.0.0",
   "scripts": {
-    "dev": "turbo run dev --parallel",
+    "dev": "turbo run dev --parallel --filter=tpush-server-runtime --filter=tpush-panel",
+    "dev:all": "turbo run dev --parallel",
     "dev:rn": "turbo run dev --filter=tpush-app",
     "dev:panel": "turbo run dev --filter=tpush-panel",
     "dev:server": "turbo run dev --filter=tpush-server-runtime",
