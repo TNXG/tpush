@@ -5,6 +5,7 @@ import {
   deleteChannel,
   deleteMessages as deleteMessagesByIds,
   fetchChannels,
+  fetchDevices,
   fetchMessages,
   getToken,
   loginApi,
@@ -84,6 +85,7 @@ function LoginScreen() {
 function App() {
   const [messages, { refetch }] = createResource(fetchMessages);
   const [channels, { refetch: refetchChannels }] = createResource(fetchChannels);
+  const [devices, { refetch: refetchDevices }] = createResource(fetchDevices);
   const [channel, setChannel] = createSignal("default");
   const [channelKey, setChannelKey] = createSignal("");
   const [newChannelName, setNewChannelName] = createSignal("");
@@ -109,7 +111,7 @@ function App() {
     try {
       await sendPush(channel(), title(), content(), JSON.parse(extras() || "{}"));
       setContent("");
-      await refetch();
+      await Promise.all([refetch(), refetchDevices()]);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : String(caughtError));
     } finally {
@@ -197,7 +199,7 @@ function App() {
       setNewChannelName("");
       setNewChannelKey("");
       setSelectedMessageIds([]);
-      await Promise.all([refetchChannels(), refetch()]);
+      await Promise.all([refetchChannels(), refetchDevices(), refetch()]);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : String(caughtError));
     } finally {
@@ -338,13 +340,58 @@ function App() {
       <section class="history">
         <div class="history-header">
           <div>
-            <h2>消息历史</h2>
-            <p>最近 200 条服务端推送记录</p>
+            <h2>控制面板</h2>
+            <p>设备在线状态与最近 200 条推送记录</p>
           </div>
-          <button type="button" class="btn-secondary" onClick={() => refetch()}>
+          <button type="button" class="btn-secondary" onClick={() => Promise.all([refetchDevices(), refetch()])}>
             <span class="material-symbols-rounded">refresh</span>
             刷新
           </button>
+        </div>
+
+        <section class="devices-panel">
+          <div class="section-heading">
+            <div>
+              <h2>设备在线</h2>
+              <p>最近注册或完成 WebSocket 握手的设备</p>
+            </div>
+            <span class="device-count">{(devices() ?? []).filter((device) => device.online).length} 在线</span>
+          </div>
+          <Show when={!devices.loading} fallback={<div class="muted">正在加载设备...</div>}>
+            <div class="devices-grid">
+              <For each={devices() ?? []} fallback={<div class="muted">暂无设备，客户端连接后会显示在这里。</div>}>
+                {(device) => (
+                  <article class={device.online ? "device-card online" : "device-card"}>
+                    <div class="device-main">
+                      <span class="material-symbols-rounded">{device.online ? "smartphone" : "phone_disabled"}</span>
+                      <div>
+                        <h3>{device.deviceName || "未知设备"}</h3>
+                        <p>{device.deviceId}</p>
+                      </div>
+                    </div>
+                    <div class="device-meta">
+                      <span>{device.systemName || "Unknown"} {device.systemVersion}</span>
+                      <span>{device.appVersion || "未知版本"}</span>
+                      <span>频道：{device.channel}</span>
+                    </div>
+                    <div class="device-footer">
+                      <span class={device.online ? "status-pill online" : "status-pill"}>
+                        {device.online ? "在线" : "离线"}
+                      </span>
+                      <time>{formatDate(device.lastWsConnectedAt || device.lastSeenAt)}</time>
+                    </div>
+                  </article>
+                )}
+              </For>
+            </div>
+          </Show>
+        </section>
+
+        <div class="section-heading">
+          <div>
+            <h2>消息历史</h2>
+            <p>最近 200 条服务端推送记录</p>
+          </div>
         </div>
         <div class="message-toolbar">
           <label class="select-all">
@@ -408,5 +455,12 @@ function App() {
 }
 
 const isAuthenticated = () => getToken() !== null;
+
+function formatDate(value: string | null): string {
+  if (!value) {
+    return "暂无连接";
+  }
+  return new Date(value).toLocaleString();
+}
 
 render(() => <>{isAuthenticated() ? <App /> : <LoginScreen />}</>, document.getElementById("root")!);

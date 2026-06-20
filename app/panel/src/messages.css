@@ -57,6 +57,113 @@
   font-weight: 700;
 }
 
+.section-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.section-heading h2 {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.section-heading p {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.devices-panel {
+  margin-bottom: 24px;
+}
+
+.devices-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  margin-bottom: 20px;
+}
+
+.device-card {
+  background: var(--md-sys-color-surface);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--radius-medium);
+  box-shadow: var(--shadow-1);
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.device-card.online {
+  border-color: var(--md-sys-color-primary);
+}
+
+.device-main {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.device-main > .material-symbols-rounded {
+  align-items: center;
+  background: var(--md-sys-color-primary-container);
+  border-radius: var(--radius-small);
+  color: var(--md-sys-color-primary);
+  display: inline-flex;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
+.device-main h3 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.device-main p {
+  color: var(--md-sys-color-on-surface-variant);
+  font-family: "Menlo", "Monaco", "Courier New", monospace;
+  font-size: 12px;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+}
+
+.device-meta {
+  color: var(--md-sys-color-on-surface-variant);
+  display: grid;
+  font-size: 13px;
+  gap: 6px;
+}
+
+.device-footer {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.device-footer time {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 12px;
+}
+
+.device-count,
+.status-pill {
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 999px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 10px;
+}
+
+.status-pill.online {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-primary);
+}
+
 .message-toolbar {
   background: var(--md-sys-color-surface-container);
   border: 1px solid var(--md-sys-color-outline-variant);

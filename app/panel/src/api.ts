@@ -16,6 +16,18 @@ export type ChannelItem = {
   updated_at: string;
 };
 
+export type DeviceItem = {
+  deviceId: string;
+  channel: string;
+  deviceName: string;
+  systemName: string;
+  systemVersion: string;
+  appVersion: string;
+  lastSeenAt: string;
+  lastWsConnectedAt: string | null;
+  online: boolean;
+};
+
 let token: string | null = localStorage.getItem("tpush_token");
 
 export function getToken(): string | null {
@@ -74,6 +86,14 @@ export const fetchMessages = async (): Promise<MessageHistoryItem[]> => {
 
 export const fetchChannels = async (): Promise<ChannelItem[]> => {
   const response = await authFetch("/api/channels");
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+};
+
+export const fetchDevices = async (): Promise<DeviceItem[]> => {
+  const response = await authFetch("/api/devices");
   if (!response.ok) {
     throw new Error(await response.text());
   }
