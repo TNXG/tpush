@@ -1,6 +1,6 @@
+use axum::Json;
 use axum::extract::ws::{Message as WebSocketMessage, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, Query, State};
-use axum::Json;
 use chrono::Utc;
 use futures_util::{SinkExt, StreamExt};
 use std::collections::HashMap;
@@ -84,7 +84,7 @@ async fn handle_channel_socket(
     loop {
         tokio::select! {
             Some(message) = message_receiver.recv() => {
-                if sender.send(WebSocketMessage::Text(message)).await.is_err() {
+                if sender.send(WebSocketMessage::Text(message.into())).await.is_err() {
                     break;
                 }
             }

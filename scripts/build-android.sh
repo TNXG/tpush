@@ -111,9 +111,9 @@ export ANDROID_HOME="$ANDROID_SDK_DIR"
 printf "sdk.dir=%s\n" "$ANDROID_SDK_DIR" > "$ANDROID_DIR/local.properties"
 
 unset RUSTC_WRAPPER
-cargo build -p tpush_core --target aarch64-linux-android --release
+cargo build --manifest-path "$ROOT_DIR/app/core/Cargo.toml" --target aarch64-linux-android --release
 mkdir -p "$NATIVE_LIB_DIR"
-cp "$ROOT_DIR/target/aarch64-linux-android/release/libtpush_core.so" "$NATIVE_LIB_DIR/libtpush_core.so"
+cp "$ROOT_DIR/app/core/target/aarch64-linux-android/release/libtpush_core.so" "$NATIVE_LIB_DIR/libtpush_core.so"
 
 cd "$ANDROID_DIR"
 if [[ "$VARIANT" == "debug" ]]; then

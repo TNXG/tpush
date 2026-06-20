@@ -2,9 +2,13 @@ mod store;
 
 use anyhow::{Context, Result};
 use chrono::Utc;
-use jni::objects::{GlobalRef, JClass, JObject, JString};
-use jni::sys::{jboolean, JNI_TRUE};
-use jni::{JNIEnv, JavaVM};
+use jni::Outcome;
+use jni::errors::LogErrorAndDefault;
+use jni::objects::{Global, JClass, JObject, JString};
+use jni::signature::{MethodSignature, RuntimeMethodSignature};
+use jni::strings::JNIString;
+use jni::sys::jboolean;
+use jni::{Env, EnvUnowned, JavaVM};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
@@ -29,7 +33,7 @@ struct TpushRuntime {
     store: MessageStore,
     device_id: Mutex<String>,
     java_vm: Mutex<Option<JavaVM>>,
-    application_context: Mutex<Option<GlobalRef>>,
+    application_context: Mutex<Option<Global<JObject<'static>>>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -148,120 +152,170 @@ fn default_message_kind() -> String {
     "server_push".to_owned()
 }
 
-fn jstring_to_string(env: &mut JNIEnv<'_>, value: JString<'_>) -> String {
-    env.get_string(&value)
-        .map(|java_string| java_string.to_string_lossy().into_owned())
-        .unwrap_or_default()
+fn jstring_to_string(env: &mut Env<'_>, value: JString<'_>) -> String {
+    value.try_to_string(env).unwrap_or_default()
 }
 
-fn context_files_database_path(env: &mut JNIEnv<'_>, context: &JObject<'_>) -> Result<String> {
+fn context_files_database_path(env: &mut Env<'_>, context: &JObject<'_>) -> Result<String> {
+    let sig = RuntimeMethodSignature::from_str("()Ljava/io/File;")?;
+    let ms = MethodSignature::from(&sig);
     let files_dir = env
-        .call_method(context, "getFilesDir", "()Ljava/io/File;", &[])?
+        .call_method(context, JNIString::from("getFilesDir"), &ms, &[])?
         .l()?;
+
+    let sig = RuntimeMethodSignature::from_str("()Ljava/lang/String;")?;
+    let ms = MethodSignature::from(&sig);
     let absolute_path = env
-        .call_method(files_dir, "getAbsolutePath", "()Ljava/lang/String;", &[])?
+        .call_method(files_dir, JNIString::from("getAbsolutePath"), &ms, &[])?
         .l()?;
+
     Ok(format!(
         "{}/tpush.sqlite",
-        jstring_to_string(env, JString::from(absolute_path))
+        jstring_to_string(env, unsafe { JString::from_raw(env, absolute_path.into_raw()) })
     ))
 }
 
-#[no_mangle]
-pub extern "system" fn Java_moe_tnxg_push_core_Bridge_nativeInit(
-    mut env: JNIEnv<'_>,
-    _class: JClass<'_>,
-    context: JObject<'_>,
-    server_base_url: JString<'_>,
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_moe_tnxg_push_core_Bridge_nativeInit<'local>(
+    mut unowned_env: EnvUnowned<'local>,
+    _class: JClass<'local>,
+    context: JObject<'local>,
+    server_base_url: JString<'local>,
 ) -> jboolean {
-    let database_path = match context_files_database_path(&mut env, &context) {
-        Ok(path) => path,
-        Err(error) => {
-            eprintln!("TPush database path failed: {error:?}");
-            return 0;
-        }
-    };
-    let server_base_url = jstring_to_string(&mut env, server_base_url);
-    initialize(database_path, server_base_url);
+    unowned_env
+        .with_env(|env| -> jni::errors::Result<_> {
+            let database_path = match context_files_database_path(env, &context) {
+                Ok(path) => path,
+                Err(error) => {
+                    eprintln!("TPush database path failed: {error:?}");
+                    return Ok(false);
+                }
+            };
+            let server_base_url = jstring_to_string(env, server_base_url);
+            initialize(database_path, server_base_url);
 
-    if let Some(runtime) = runtime() {
-        if let Ok(java_vm) = env.get_java_vm() {
-            *runtime.java_vm.lock().unwrap() = Some(java_vm);
-        }
-        if let Ok(global_context) = env.new_global_ref(&context) {
-            *runtime.application_context.lock().unwrap() = Some(global_context);
-        }
-    }
+            if let Some(runtime) = runtime() {
+                if let Ok(java_vm) = env.get_java_vm() {
+                    *runtime.java_vm.lock().unwrap() = Some(java_vm);
+                }
+                if let Ok(global_context) = env.new_global_ref(context) {
+                    *runtime.application_context.lock().unwrap() = Some(global_context);
+                }
+            }
 
-    JNI_TRUE
+            Ok(true)
+        })
+        .resolve::<LogErrorAndDefault>()
 }
 
-#[no_mangle]
-pub extern "system" fn Java_moe_tnxg_push_core_Bridge_nativeGetDeviceId(
-    env: JNIEnv<'_>,
-    _class: JClass<'_>,
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_moe_tnxg_push_core_Bridge_nativeGetDeviceId<'local>(
+    mut unowned_env: EnvUnowned<'local>,
+    _class: JClass<'local>,
 ) -> jni::sys::jstring {
-    env.new_string(get_device_id())
-        .map(|value| value.into_raw())
-        .unwrap_or(std::ptr::null_mut())
+    let outcome = unowned_env
+        .with_env(|env| -> jni::errors::Result<_> {
+            Ok(env.new_string(get_device_id())?.into_raw())
+        })
+        .into_outcome();
+    match outcome {
+        Outcome::Ok(ptr) => ptr,
+        Outcome::Err(e) => {
+            eprintln!("TPush nativeGetDeviceId error: {e}");
+            std::ptr::null_mut()
+        }
+        Outcome::Panic(_) => {
+            eprintln!("TPush nativeGetDeviceId panic");
+            std::ptr::null_mut()
+        }
+    }
 }
 
-#[no_mangle]
-pub extern "system" fn Java_moe_tnxg_push_core_Bridge_nativeGetMessagesJson(
-    env: JNIEnv<'_>,
-    _class: JClass<'_>,
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_moe_tnxg_push_core_Bridge_nativeGetMessagesJson<'local>(
+    mut unowned_env: EnvUnowned<'local>,
+    _class: JClass<'local>,
 ) -> jni::sys::jstring {
-    let messages_json = serde_json::to_string(&get_messages()).unwrap_or_else(|_| "[]".to_owned());
-    env.new_string(messages_json)
-        .map(|value| value.into_raw())
-        .unwrap_or(std::ptr::null_mut())
-}
-
-#[no_mangle]
-pub extern "system" fn Java_moe_tnxg_push_core_Bridge_nativeMarkRead(
-    mut env: JNIEnv<'_>,
-    _class: JClass<'_>,
-    id: JString<'_>,
-) {
-    let id = jstring_to_string(&mut env, id);
-    if !id.is_empty() {
-        mark_read(id);
+    let outcome = unowned_env
+        .with_env(|env| -> jni::errors::Result<_> {
+            let messages_json =
+                serde_json::to_string(&get_messages()).unwrap_or_else(|_| "[]".to_owned());
+            Ok(env.new_string(messages_json)?.into_raw())
+        })
+        .into_outcome();
+    match outcome {
+        Outcome::Ok(ptr) => ptr,
+        Outcome::Err(e) => {
+            eprintln!("TPush nativeGetMessagesJson error: {e}");
+            std::ptr::null_mut()
+        }
+        Outcome::Panic(_) => {
+            eprintln!("TPush nativeGetMessagesJson panic");
+            std::ptr::null_mut()
+        }
     }
 }
 
-#[no_mangle]
-pub extern "system" fn Java_moe_tnxg_push_core_Bridge_nativeDeleteMessage(
-    mut env: JNIEnv<'_>,
-    _class: JClass<'_>,
-    id: JString<'_>,
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_moe_tnxg_push_core_Bridge_nativeMarkRead<'local>(
+    mut unowned_env: EnvUnowned<'local>,
+    _class: JClass<'local>,
+    id: JString<'local>,
 ) {
-    let id = jstring_to_string(&mut env, id);
-    if !id.is_empty() {
-        delete_message(id);
-    }
+    unowned_env
+        .with_env(|env| -> jni::errors::Result<_> {
+            let id = jstring_to_string(env, id);
+            if !id.is_empty() {
+                mark_read(id);
+            }
+            Ok(())
+        })
+        .resolve::<LogErrorAndDefault>()
 }
 
-#[no_mangle]
-pub extern "system" fn Java_moe_tnxg_push_core_Bridge_nativeClearAll(
-    _env: JNIEnv<'_>,
-    _class: JClass<'_>,
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_moe_tnxg_push_core_Bridge_nativeDeleteMessage<'local>(
+    mut unowned_env: EnvUnowned<'local>,
+    _class: JClass<'local>,
+    id: JString<'local>,
+) {
+    unowned_env
+        .with_env(|env| -> jni::errors::Result<_> {
+            let id = jstring_to_string(env, id);
+            if !id.is_empty() {
+                delete_message(id);
+            }
+            Ok(())
+        })
+        .resolve::<LogErrorAndDefault>()
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_moe_tnxg_push_core_Bridge_nativeClearAll<'local>(
+    _env: EnvUnowned<'local>,
+    _class: JClass<'local>,
 ) {
     clear_all();
 }
 
-#[no_mangle]
-pub extern "system" fn Java_moe_tnxg_push_core_Bridge_nativeIngestRealtimeMessage(
-    mut env: JNIEnv<'_>,
-    _class: JClass<'_>,
-    message_json: JString<'_>,
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_moe_tnxg_push_core_Bridge_nativeIngestRealtimeMessage<'local>(
+    mut unowned_env: EnvUnowned<'local>,
+    _class: JClass<'local>,
+    message_json: JString<'local>,
 ) {
-    let message_json = jstring_to_string(&mut env, message_json);
-    if message_json.is_empty() {
-        return;
-    }
-    if let Err(error) = persist_realtime_message(message_json) {
-        eprintln!("TPush realtime message persist failed: {error:?}");
-    }
+    unowned_env
+        .with_env(|env| -> jni::errors::Result<_> {
+            let message_json = jstring_to_string(env, message_json);
+            if message_json.is_empty() {
+                return Ok(());
+            }
+            if let Err(error) = persist_realtime_message(message_json) {
+                eprintln!("TPush realtime message persist failed: {error:?}");
+            }
+            Ok(())
+        })
+        .resolve::<LogErrorAndDefault>()
 }
 
 impl From<MessageRecord> for Message {

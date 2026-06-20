@@ -10,12 +10,12 @@ mod routes;
 mod state;
 
 use anyhow::Context;
+use axum::Router;
 use axum::body::Body;
 use axum::extract::Request;
-use axum::http::{header, StatusCode};
+use axum::http::{StatusCode, header};
 use axum::response::Response;
 use axum::routing::{get, post};
-use axum::Router;
 use sqlx::sqlite::SqlitePoolOptions;
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -44,8 +44,7 @@ async fn main() -> anyhow::Result<()> {
     let database = SqlitePoolOptions::new()
         .max_connections(5)
         .connect(
-            &std::env::var("DATABASE_URL")
-                .unwrap_or_else(|_| "sqlite://tpush.sqlite".to_owned()),
+            &std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite://tpush.sqlite".to_owned()),
         )
         .await
         .context("failed to connect database")?;

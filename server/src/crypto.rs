@@ -131,7 +131,7 @@ pub async fn validate_channel_signature(
     }
 
     let signed_payload = signed_payload(channel, subject, ts, nonce);
-    let mut mac = <HmacSha256 as Mac>::new_from_slice(secret.as_bytes())
+    let mut mac = <HmacSha256 as digest::KeyInit>::new_from_slice(secret.as_bytes())
         .map_err(|error| ApiError::from(anyhow::anyhow!(error.to_string())))?;
     mac.update(signed_payload.as_bytes());
     let Ok(signature_bytes) = hex::decode(signature) else {

@@ -1,11 +1,11 @@
 use axum::{
+    Form,
     extract::{Request, State},
-    http::{header, StatusCode},
+    http::{StatusCode, header},
     middleware::Next,
     response::{IntoResponse, Json, Response},
-    Form,
 };
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 
 use crate::error::ApiError;
@@ -94,10 +94,7 @@ pub async fn auth_middleware(
             verify_token(t, &state.config.auth.jwt_secret)?;
         }
         None => {
-            return Err(ApiError::with_status(
-                StatusCode::UNAUTHORIZED,
-                "请先登录",
-            ));
+            return Err(ApiError::with_status(StatusCode::UNAUTHORIZED, "请先登录"));
         }
     }
 

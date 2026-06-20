@@ -1,4 +1,5 @@
 use chrono::Utc;
+use sqlx::AssertSqlSafe;
 use sqlx::{Pool, Row, Sqlite};
 use uuid::Uuid;
 
@@ -73,7 +74,9 @@ async fn add_column_if_missing(
     definition: &str,
 ) -> anyhow::Result<()> {
     let pragma = format!("PRAGMA table_info({table})");
-    let columns = sqlx::query(&pragma).fetch_all(database).await?;
+    let columns = sqlx::query::<Sqlite>(AssertSqlSafe(pragma))
+        .fetch_all(database)
+        .await?;
     if columns
         .iter()
         .filter_map(|row| row.try_get::<String, _>("name").ok())
@@ -83,6 +86,8 @@ async fn add_column_if_missing(
     }
 
     let alter = format!("ALTER TABLE {table} ADD COLUMN {column} {definition}");
-    sqlx::query(&alter).execute(database).await?;
+    sqlx::query::<Sqlite>(AssertSqlSafe(alter))
+        .execute(database)
+        .await?;
     Ok(())
 }

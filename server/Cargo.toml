@@ -1,28 +1,74 @@
 [package]
 name = "tpush-server"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
+version = "0.0.1"
+edition = "2024"
+license = "MIT"
 
 [dependencies]
-anyhow = "1"
-axum = { version = "0.7", features = ["ws"] }
-chrono = { version = "0.4", features = ["serde"] }
-futures-util = "0.3"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
-tower-http = { version = "0.6", features = ["cors", "trace"] }
-jsonwebtoken = "9"
-mime_guess = "2"
-rust-embed = "8"
-toml = "0.8"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-uuid = { version = "1", features = ["v4", "serde"] }
-aes-gcm = "0.10"
-base64 = "0.22"
-sha2 = "0.10"
-hmac = "0.12"
-hex = "0.4"
+aes-gcm = "0.10.3"
+anyhow = "1.0.102"
+axum = { version = "0.8.9", default-features = false, features = [
+    "form",
+    "http1",
+    "json",
+    "query",
+    "tokio",
+    "ws",
+] }
+base64 = { version = "0.22.1", default-features = false, features = ["std"] }
+chrono = { version = "0.4.45", default-features = false, features = [
+    "clock",
+    "serde",
+] }
+digest = "0.11.3"
+futures-util = { version = "0.3.32", default-features = false, features = [
+    "async-await",
+    "std",
+] }
+hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
+hmac = "0.13.0"
+jsonwebtoken = "10.4.0"
+mime_guess = "2.0.5"
+rust-embed = { version = "8.11.0", default-features = false, features = [
+    "compression",
+    "interpolate-folder-path",
+] }
+serde = { version = "1.0.228", default-features = false, features = [
+    "derive",
+    "std",
+] }
+serde_json = { version = "1.0.150", default-features = false, features = [
+    "std",
+] }
+sha2 = "0.11.0"
+sqlx = { version = "0.9.0", default-features = false, features = [
+    "runtime-tokio",
+    "sqlite",
+    "chrono",
+    "uuid",
+    "derive",
+    "tls-rustls"
+] }
+tokio = { version = "1.52.3", default-features = false, features = [
+    "macros",
+    "rt-multi-thread",
+    "signal",
+    "net",
+    "io-util",
+    "sync",
+    "time",
+] }
+toml = "1.1.2"
+tower-http = { version = "0.7.0", default-features = false, features = [
+    "cors",
+    "trace",
+] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", default-features = false, features = [
+    "fmt",
+    "env-filter",
+] }
+uuid = { version = "1.23.3", default-features = false, features = [
+    "v4",
+    "serde",
+] }

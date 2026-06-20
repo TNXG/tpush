@@ -4,6 +4,7 @@ node_modules/
 # Rust
 */target/
 /target/
+*/*/target/
 
 # Android
 app/android/app/build/
