@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet, View } from 'react-native';
 import { Appbar, Chip, useTheme } from 'react-native-paper';
 import { translateState } from '../utils';
 
@@ -43,23 +44,29 @@ export function PushAppBar({
     : 'circle-outline';
 
   return (
-    <Appbar.Header elevated style={{ backgroundColor: theme.colors.surface, paddingTop: statusBarHeight }}>
+    <Appbar.Header
+      elevated
+      statusBarHeight={statusBarHeight}
+      style={[styles.header, { backgroundColor: theme.colors.surface }]}
+    >
       <Appbar.Content
         title="TPush"
-        titleStyle={{ fontWeight: 'bold' }}
+        titleStyle={styles.title}
         subtitle={deviceId || '正在生成设备 ID...'}
-        subtitleStyle={{ fontSize: 12, opacity: 0.8 }}
-        style={{ flexShrink: 1 }}
+        subtitleStyle={styles.subtitle}
+        style={styles.content}
       />
-      <Chip
-        onPress={onOpenSettings}
-        style={{ marginRight: 8, backgroundColor: theme.colors.surfaceVariant, flexShrink: 1 }}
-        textStyle={{ color: statusColor, fontWeight: 'bold' }}
-        icon={statusIcon}
-        ellipsizeMode="tail"
-      >
-        {statusLabel}
-      </Chip>
+      <View style={styles.statusContainer}>
+        <Chip
+          onPress={onOpenSettings}
+          style={[styles.statusChip, { backgroundColor: theme.colors.surfaceVariant }]}
+          textStyle={[styles.statusText, { color: statusColor }]}
+          icon={statusIcon}
+          ellipsizeMode="tail"
+        >
+          {statusLabel}
+        </Chip>
+      </View>
       <Appbar.Action
         icon="refresh"
         onPress={onRefresh}
@@ -67,3 +74,30 @@ export function PushAppBar({
     </Appbar.Header>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    minHeight: 64,
+  },
+  content: {
+    flex: 1,
+    minWidth: 0,
+  },
+  title: {
+    fontWeight: 'bold',
+  },
+  subtitle: {
+    fontSize: 12,
+    opacity: 0.8,
+  },
+  statusContainer: {
+    flexShrink: 0,
+    maxWidth: 136,
+  },
+  statusChip: {
+    marginRight: 8,
+  },
+  statusText: {
+    fontWeight: 'bold',
+  },
+});

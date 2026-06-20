@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Animated, FlatList, PanResponder, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
-import { Avatar, Badge, Card, Icon, IconButton, Surface, Text, useTheme } from 'react-native-paper';
+import { Avatar, Badge, Card, Icon, IconButton, Text, useTheme } from 'react-native-paper';
 import type { Message } from 'tpush_core';
 
 interface MessageListProps {
@@ -12,6 +12,7 @@ interface MessageListProps {
 }
 
 const ACTION_WIDTH = 96;
+const ROW_RADIUS = 12;
 
 export function MessageList({
   messages,
@@ -59,6 +60,11 @@ function SwipeMessageRow({
   const theme = useTheme();
   const translateX = useRef(new Animated.Value(0)).current;
   const opened = useRef(false);
+  const deleteOpacity = translateX.interpolate({
+    inputRange: [-8, 0],
+    outputRange: [1, 0],
+    extrapolate: "clamp",
+  });
   const snapRow = (toValue: number) => {
     opened.current = toValue < 0;
     Animated.spring(translateX, {
@@ -99,7 +105,7 @@ function SwipeMessageRow({
 
   return (
     <View style={styles.swipeShell}>
-      <Surface style={styles.deleteBackground}>
+      <Animated.View style={[styles.deleteBackground, { opacity: deleteOpacity }]}>
         <Pressable style={styles.deleteAction} onPress={handleDelete}>
           <IconButton
             icon="trash-can-outline"
@@ -109,8 +115,8 @@ function SwipeMessageRow({
           />
           <Text style={styles.deleteText}>删除</Text>
         </Pressable>
-      </Surface>
-      <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
+      </Animated.View>
+      <Animated.View style={[styles.cardLayer, { transform: [{ translateX }] }]} {...panResponder.panHandlers}>
         <Card
           style={[styles.card, message.read && styles.cardRead, !message.read && styles.cardUnread]}
           onPress={handlePress}
@@ -162,25 +168,25 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   swipeShell: {
+    backgroundColor: "#ffffff",
+    borderRadius: ROW_RADIUS,
     marginBottom: 12,
     overflow: "hidden",
-    borderRadius: 12,
   },
   deleteBackground: {
     alignItems: "flex-end",
-    backgroundColor: "#fee2e2",
-    borderRadius: 12,
     bottom: 0,
     justifyContent: "center",
     position: "absolute",
     right: 0,
     top: 0,
-    width: "100%",
+    width: ACTION_WIDTH,
   },
   deleteAction: {
     alignItems: "center",
     backgroundColor: "#dc2626",
-    borderRadius: 12,
+    borderBottomRightRadius: ROW_RADIUS,
+    borderTopRightRadius: ROW_RADIUS,
     height: "100%",
     justifyContent: "center",
     width: ACTION_WIDTH,
@@ -194,9 +200,13 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginTop: -2,
   },
+  cardLayer: {
+    borderRadius: ROW_RADIUS,
+    overflow: "hidden",
+  },
   card: {
-    borderRadius: 12,
     backgroundColor: "#ffffff",
+    borderRadius: ROW_RADIUS,
   },
   cardUnread: {
     borderLeftWidth: 4,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { forwardRef, memo, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Button, Dialog, Icon, Portal, Surface, Text, TextInput, useTheme } from 'react-native-paper';
 import type { ConnectionStatus } from 'tpush_core';
@@ -23,19 +23,7 @@ export function SettingsDialog({
   initialSecret,
   onSave,
 }: SettingsDialogProps) {
-  const [serverUrlDraft, setServerUrlDraft] = useState(initialServerUrl);
-  const [channelDraft, setChannelDraft] = useState(initialChannel);
-  const [channelSecretDraft, setChannelSecretDraft] = useState(initialSecret);
-  const [secretVisible, setSecretVisible] = useState(false);
-  const theme = useTheme();
-
-  const handleSave = () => {
-    onSave(
-      normalizeServerUrl(serverUrlDraft),
-      normalizeChannel(channelDraft),
-      channelSecretDraft.trim()
-    );
-  };
+  const formRef = useRef<ConnectionFormHandle>(null);
 
   return (
     <Portal>
@@ -43,41 +31,14 @@ export function SettingsDialog({
         <Dialog.Title>连接设置</Dialog.Title>
         <Dialog.ScrollArea style={styles.scrollArea}>
           <ScrollView contentContainerStyle={styles.scrollContent}>
-            <View style={styles.formGroup}>
-              <TextInput
-                label="服务端地址"
-                value={serverUrlDraft}
-                onChangeText={setServerUrlDraft}
-                mode="outlined"
-                keyboardType="url"
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholder="例如 http://10.0.2.2:3000"
-              />
-              <TextInput
-                label="频道名称"
-                value={channelDraft}
-                onChangeText={setChannelDraft}
-                mode="outlined"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TextInput
-                label="频道密钥（可选）"
-                value={channelSecretDraft}
-                onChangeText={setChannelSecretDraft}
-                mode="outlined"
-                secureTextEntry={!secretVisible}
-                autoCapitalize="none"
-                autoCorrect={false}
-                right={
-                  <TextInput.Icon
-                    icon={secretVisible ? 'eye-off-outline' : 'eye-outline'}
-                    onPress={() => setSecretVisible(!secretVisible)}
-                  />
-                }
-              />
-            </View>
+            <ConnectionForm
+              ref={formRef}
+              visible={visible}
+              initialServerUrl={initialServerUrl}
+              initialChannel={initialChannel}
+              initialSecret={initialSecret}
+              onSave={onSave}
+            />
 
             <View style={styles.diagnostics}>
               <Text variant="titleMedium" style={styles.sectionTitle}>
@@ -155,7 +116,7 @@ export function SettingsDialog({
         </Dialog.ScrollArea>
         <Dialog.Actions style={styles.actions}>
           <Button onPress={onDismiss}>取消</Button>
-          <Button mode="contained" onPress={handleSave}>
+          <Button mode="contained" onPress={() => formRef.current?.save()}>
             保存并重连
           </Button>
         </Dialog.Actions>
@@ -163,6 +124,93 @@ export function SettingsDialog({
     </Portal>
   );
 }
+
+interface ConnectionFormHandle {
+  save: () => void;
+}
+
+interface ConnectionFormProps {
+  visible: boolean;
+  initialServerUrl: string;
+  initialChannel: string;
+  initialSecret: string;
+  onSave: (serverUrl: string, channel: string, secret: string) => void;
+}
+
+const ConnectionForm = memo(forwardRef<ConnectionFormHandle, ConnectionFormProps>(function ConnectionForm({
+  visible,
+  initialServerUrl,
+  initialChannel,
+  initialSecret,
+  onSave,
+}, ref) {
+  const [serverUrlDraft, setServerUrlDraft] = useState(initialServerUrl);
+  const [channelDraft, setChannelDraft] = useState(initialChannel);
+  const [channelSecretDraft, setChannelSecretDraft] = useState(initialSecret);
+  const [secretVisible, setSecretVisible] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+    setServerUrlDraft(initialServerUrl);
+    setChannelDraft(initialChannel);
+    setChannelSecretDraft(initialSecret);
+  }, [initialChannel, initialSecret, initialServerUrl, visible]);
+
+  useImperativeHandle(ref, () => ({
+    save: () => {
+      onSave(
+        normalizeServerUrl(serverUrlDraft),
+        normalizeChannel(channelDraft),
+        channelSecretDraft.trim(),
+      );
+    },
+  }), [channelDraft, channelSecretDraft, onSave, serverUrlDraft]);
+
+  return (
+    <View style={styles.formGroup}>
+      <TextInput
+        label="服务端地址"
+        value={serverUrlDraft}
+        onChangeText={setServerUrlDraft}
+        mode="outlined"
+        keyboardType="url"
+        autoCapitalize="none"
+        autoCorrect={false}
+        placeholder="例如 http://10.0.2.2:3000"
+      />
+      <TextInput
+        label="频道名称"
+        value={channelDraft}
+        onChangeText={setChannelDraft}
+        mode="outlined"
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      <TextInput
+        label="频道密钥（可选）"
+        value={channelSecretDraft}
+        onChangeText={setChannelSecretDraft}
+        mode="outlined"
+        secureTextEntry={!secretVisible}
+        autoCapitalize="none"
+        autoCorrect={false}
+        right={
+          <TextInput.Icon
+            icon={secretVisible ? 'eye-off-outline' : 'eye-outline'}
+            onPress={() => setSecretVisible(!secretVisible)}
+          />
+        }
+      />
+    </View>
+  );
+}), (previousProps, nextProps) =>
+  previousProps.visible === nextProps.visible &&
+  previousProps.initialServerUrl === nextProps.initialServerUrl &&
+  previousProps.initialChannel === nextProps.initialChannel &&
+  previousProps.initialSecret === nextProps.initialSecret
+);
 
 function DiagnosticCard({
   icon,

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { StatusBar, StyleSheet, View } from "react-native";
+import { PermissionsAndroid, Platform, StatusBar, StyleSheet, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Banner,
@@ -108,6 +108,7 @@ function App(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
+    requestNotificationPermission();
     refresh();
     const interval = setInterval(refresh, 2000);
     return () => clearInterval(interval);
@@ -234,6 +235,16 @@ function App(): React.JSX.Element {
       </Snackbar>
     </View>
   );
+}
+
+function requestNotificationPermission() {
+  if (Platform.OS !== "android" || Platform.Version < 33) {
+    return;
+  }
+
+  PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS).catch(() => {
+    // 用户拒绝或系统异常时，后台服务仍会继续运行，只是系统通知可能不会弹出或发声。
+  });
 }
 
 const styles = StyleSheet.create({
