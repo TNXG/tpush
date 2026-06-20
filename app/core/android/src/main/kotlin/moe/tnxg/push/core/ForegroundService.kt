@@ -2,6 +2,7 @@ package moe.tnxg.push.core
 
 import android.app.Service
 import android.content.Intent
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -32,6 +33,7 @@ class ForegroundService : Service() {
     private lateinit var deviceId: String
     private lateinit var channelName: String
     private lateinit var channelSecret: String
+    private lateinit var deviceInfo: DeviceInfo
 
     override fun onCreate() {
         super.onCreate()
@@ -42,6 +44,7 @@ class ForegroundService : Service() {
         serverBaseUrl = readServerBaseUrl()
         deviceId = Bridge.nativeGetDeviceId()
         channelSecret = Config.getChannelSecret(this)
+        deviceInfo = DeviceInfo.fromService(this)
         ConnectionStatus.setConnecting(this, serverBaseUrl)
         registerDevice()
         syncMessages()
@@ -74,6 +77,7 @@ class ForegroundService : Service() {
         val body = JSONObject()
             .put("deviceId", deviceId)
             .put("channel", channelName)
+            .put("device", deviceInfo.toJson())
             .put("auth", Crypto.authJson(channelName, channelSecret, deviceId))
             .toString()
             .toRequestBody(JSON_MEDIA_TYPE)
@@ -254,10 +258,9 @@ class ForegroundService : Service() {
     private fun buildWebSocketUrl(): String {
         val authQuery = Crypto.authQuery(channelName, channelSecret, "ws")
         val baseUrl = "${serverBaseUrl.toWebSocketBaseUrl()}/api/channels/${Crypto.encodeUrl(channelName)}/stream"
-        return if (authQuery.isBlank()) {
-            baseUrl
-        } else {
-            "$baseUrl?$authQuery"
+        val deviceQuery = deviceInfo.toQueryParts(deviceId).joinToString("&")
+        return listOf(deviceQuery, authQuery).filter { part -> part.isNotBlank() }.joinToString("&").let { query ->
+            if (query.isBlank()) baseUrl else "$baseUrl?$query"
         }
     }
 
@@ -270,11 +273,63 @@ class ForegroundService : Service() {
     }
 }
 
+private data class DeviceInfo(
+    val deviceName: String,
+    val systemName: String,
+    val systemVersion: String,
+    val appVersion: String,
+) {
+    fun toJson(): JSONObject {
+        return JSONObject()
+            .put("deviceName", deviceName)
+            .put("systemName", systemName)
+            .put("systemVersion", systemVersion)
+            .put("appVersion", appVersion)
+    }
+
+    fun toQueryParts(deviceId: String): List<String> {
+        return listOf(
+            "deviceId=${Crypto.encodeUrl(deviceId)}",
+            "deviceName=${Crypto.encodeUrl(deviceName)}",
+            "systemName=${Crypto.encodeUrl(systemName)}",
+            "systemVersion=${Crypto.encodeUrl(systemVersion)}",
+            "appVersion=${Crypto.encodeUrl(appVersion)}",
+        )
+    }
+
+    companion object {
+        fun fromService(service: Service): DeviceInfo {
+            val packageInfo = service.packageManager.getPackageInfoCompat(service.packageName)
+            val applicationLabel = service.packageManager
+                .getApplicationLabel(service.applicationInfo)
+                .toString()
+            return DeviceInfo(
+                deviceName = listOf(Build.MANUFACTURER, Build.MODEL)
+                    .filter { value -> value.isNotBlank() }
+                    .joinToString(" ")
+                    .ifBlank { Build.DEVICE },
+                systemName = "Android",
+                systemVersion = "${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})",
+                appVersion = "$applicationLabel ${packageInfo.versionName ?: "unknown"}",
+            )
+        }
+    }
+}
+
 private fun String.toWebSocketBaseUrl(): String {
     val trimmedUrl = trimEnd('/')
     return when {
         trimmedUrl.startsWith("https://") -> "wss://${trimmedUrl.removePrefix("https://")}"
         trimmedUrl.startsWith("http://") -> "ws://${trimmedUrl.removePrefix("http://")}"
         else -> trimmedUrl
+    }
+}
+
+@Suppress("DEPRECATION")
+private fun android.content.pm.PackageManager.getPackageInfoCompat(packageName: String): android.content.pm.PackageInfo {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        getPackageInfo(packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
+    } else {
+        getPackageInfo(packageName, 0)
     }
 }

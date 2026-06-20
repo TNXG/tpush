@@ -2,7 +2,9 @@ package moe.tnxg.push.core
 
 import android.app.Activity
 import android.app.Application
+import android.content.ComponentCallbacks2
 import android.content.Context
+import android.content.res.Configuration
 import android.os.Bundle
 
 object AppState {
@@ -19,25 +21,20 @@ object AppState {
             return
         }
         registered = true
+        markBackground(application)
         application.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
             override fun onActivityStarted(activity: Activity) {
                 val count = currentVisibleCount(application) + 1
-                application.preferences()
-                    .edit()
-                    .putInt(KEY_VISIBLE_ACTIVITY_COUNT, count)
-                    .putBoolean(KEY_FRONTEND_VISIBLE, true)
-                    .putLong(KEY_LAST_FOREGROUND_AT, System.currentTimeMillis())
-                    .apply()
+                markForeground(application, count)
             }
 
             override fun onActivityStopped(activity: Activity) {
                 val count = (currentVisibleCount(application) - 1).coerceAtLeast(0)
-                application.preferences()
-                    .edit()
-                    .putInt(KEY_VISIBLE_ACTIVITY_COUNT, count)
-                    .putBoolean(KEY_FRONTEND_VISIBLE, count > 0)
-                    .putLong(KEY_LAST_BACKGROUND_AT, System.currentTimeMillis())
-                    .apply()
+                if (count > 0) {
+                    markForeground(application, count)
+                } else {
+                    markBackground(application)
+                }
             }
 
             override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
@@ -46,10 +43,27 @@ object AppState {
             override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
             override fun onActivityDestroyed(activity: Activity) = Unit
         })
+        application.registerComponentCallbacks(object : ComponentCallbacks2 {
+            override fun onTrimMemory(level: Int) {
+                if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
+                    markBackground(application)
+                }
+            }
+
+            override fun onConfigurationChanged(newConfig: Configuration) = Unit
+            override fun onLowMemory() = Unit
+        })
     }
 
     fun isFrontendVisible(context: Context): Boolean {
-        return context.preferences().getBoolean(KEY_FRONTEND_VISIBLE, false) &&
+        val preferences = context.preferences()
+        val visibleActivityCount = preferences.getInt(KEY_VISIBLE_ACTIVITY_COUNT, 0)
+        val frontendVisible = preferences.getBoolean(KEY_FRONTEND_VISIBLE, false)
+        val lastForegroundAt = preferences.getLong(KEY_LAST_FOREGROUND_AT, 0L)
+        val lastBackgroundAt = preferences.getLong(KEY_LAST_BACKGROUND_AT, 0L)
+        return visibleActivityCount > 0 &&
+            frontendVisible &&
+            lastForegroundAt >= lastBackgroundAt &&
             ResourceMetrics.snapshot(context).frontendPid > 0
     }
 
@@ -60,6 +74,24 @@ object AppState {
             lastForegroundAt = preferences.getLong(KEY_LAST_FOREGROUND_AT, 0L),
             lastBackgroundAt = preferences.getLong(KEY_LAST_BACKGROUND_AT, 0L),
         )
+    }
+
+    private fun markForeground(context: Context, visibleActivityCount: Int) {
+        context.preferences()
+            .edit()
+            .putInt(KEY_VISIBLE_ACTIVITY_COUNT, visibleActivityCount)
+            .putBoolean(KEY_FRONTEND_VISIBLE, true)
+            .putLong(KEY_LAST_FOREGROUND_AT, System.currentTimeMillis())
+            .commit()
+    }
+
+    private fun markBackground(context: Context) {
+        context.preferences()
+            .edit()
+            .putInt(KEY_VISIBLE_ACTIVITY_COUNT, 0)
+            .putBoolean(KEY_FRONTEND_VISIBLE, false)
+            .putLong(KEY_LAST_BACKGROUND_AT, System.currentTimeMillis())
+            .commit()
     }
 
     private fun currentVisibleCount(context: Context): Int {

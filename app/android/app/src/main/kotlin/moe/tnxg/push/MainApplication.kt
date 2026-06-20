@@ -38,11 +38,11 @@ class MainApplication : Application(), ReactApplication {
     override fun onCreate() {
         super.onCreate()
         Bridge.init(this)
-        AppState.register(this)
         if (isTpushServiceProcess()) {
             return
         }
 
+        AppState.register(this)
         Bridge.startForegroundService(this)
         SoLoader.init(this, OpenSourceMergedSoMapping)
         if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
